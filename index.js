@@ -106,6 +106,22 @@ app.route('/babe')
       }
     }
 
+    // Pinterest search command
+    if (lowerQuery.startsWith("pinterest search ")) {
+      const searchQuery = query.replace(/pinterest search /i, "").trim();
+      if (!searchQuery) return res.status(400).send("Please provide a search query.");
+      try {
+        const apiRes = await axios.get(`https://kaiz-apis.gleeze.com/api/pinterest?search=${encodeURIComponent(searchQuery)}&apikey=a0ebe80e-bf1a-4dbf-8d36-6935b1bfa5ea`);
+        const imageUrl = apiRes.data.imageUrl || apiRes.data.url || apiRes.data;
+        const imageStream = await axios.get(imageUrl, { responseType: 'stream' });
+        res.setHeader('Content-Type', 'image/jpeg');
+        return imageStream.data.pipe(res);
+      } catch (error) {
+        console.error("Error fetching Pinterest images:", error.message);
+        return res.status(500).send("Failed to fetch Pinterest images.");
+      }
+    }
+
     // Default AI reply via Gemini
     try {
       const prompt = `${MODES[currentMode]}\n\nUser: ${query}`;
