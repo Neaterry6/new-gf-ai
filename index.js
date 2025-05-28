@@ -28,7 +28,9 @@ const MODES = {
   aesthetic: `*System Name:* Aesthetic Mode AI\n*Behavior:* Poetic, dreamy, vintage.`,
   lover: `*System Name:* Lover Mode AI\n*Behavior:* Sweet, romantic, deeply affectionate.`,
   flirty: `*System Name:* Flirty Mode AI\n*Behavior:* Teasing, complimenting, playful.`,
-  funny: `*System Name:* Funny Mode AI\n*Behavior:* Witty, humorous, sarcastic.`
+  funny: `*System Name:* Funny Mode AI\n*Behavior:* Witty, humorous, sarcastic.`,
+  nerdy: `*System Name:* Nerdy Mode AI\n*Behavior:* Intelligent, knowledgeable, analytical.`,
+  chill: `*System Name:* Chill Mode AI\n*Behavior:* Relaxed, calm, laid-back.`,
 };
 
 let currentMode = 'lover';
@@ -60,75 +62,51 @@ app.route('/babe')
     if (lowerQuery.startsWith("play me a song") || lowerQuery.startsWith("play ")) {
       const songTitle = query.replace(/play me a song|play /i, "").trim();
       if (!songTitle) return res.status(400).send("Please provide a song title.");
-      const songUrl = `https://spotify-api-t6b7.onrender.com/play?song=${encodeURIComponent(songTitle)}`;
-      return res.status(200).send(`Here's your song: ${songUrl}`);
+      try {
+        const apiRes = await axios.get(`https://spotify-api-t6b7.onrender.com/play?song=${encodeURIComponent(songTitle)}`);
+        const audioUrl = apiRes.data.audioUrl || apiRes.data.url || apiRes.data;
+        const audioStream = await axios.get(audioUrl, { responseType: 'stream' });
+        res.setHeader('Content-Type', 'audio/mpeg');
+        return audioStream.data.pipe(res);
+      } catch (error) {
+        console.error("Error fetching song:", error.message);
+        return res.status(500).send("Failed to fetch song.");
+      }
     }
 
     // Send video command
     if (lowerQuery.includes("send me a video") || lowerQuery.includes("video of")) {
       const videoTitle = query.replace(/send me a video|video of/i, "").trim();
       if (!videoTitle) return res.status(400).send("Please provide a video title.");
-      const videoUrl = `https://spotify-api-t6b7.onrender.com/video?search=${encodeURIComponent(videoTitle)}`;
-      return res.status(200).send(`Here's your video: ${videoUrl}`);
+      try {
+        const apiRes = await axios.get(`https://spotify-api-t6b7.onrender.com/video?search=${encodeURIComponent(videoTitle)}`);
+        const videoUrl = apiRes.data.videoUrl || apiRes.data.url || apiRes.data;
+        const videoStream = await axios.get(videoUrl, { responseType: 'stream' });
+        res.setHeader('Content-Type', 'video/mp4');
+        return videoStream.data.pipe(res);
+      } catch (error) {
+        console.error("Error fetching video:", error.message);
+        return res.status(500).send("Failed to fetch video.");
+      }
     }
 
     // Generate image command
     if (lowerQuery.includes("generate image") || lowerQuery.includes("create image of")) {
       const imagePrompt = query.replace(/generate image|create image of/i, "").trim();
       if (!imagePrompt) return res.status(400).send("Please provide an image prompt.");
-      const imageUrl = `https://smfahim.xyz/creartai?prompt=${encodeURIComponent(imagePrompt)}`;
-      return res.status(200).send(`Here's your generated image: ${imageUrl}`);
-    }
-
-    // Default AI reply via Gemini
-    try {
-      const prompt = `${MODES[currentMode]}\n\nUser: ${query}`;
-      const result = await model.generateContent(prompt);
-      const response = result?.response?.candidates?.[0]?.content || "No response generated.";
-      return res.status(200).send(response);
-    } catch (e) {
-      console.error("Error:", e);
-      return res.status(500).send("Failed to generate response.");
-    }
-  })
-  .post(async (req, res) => {
-    const query = req.body.query;
-    if (!query) return res.status(400).send("No query provided.");
-
-    const lowerQuery = query.toLowerCase();
-
-    const setModeMatch = lowerQuery.match(/ai set (\w+) mode/);
-    if (setModeMatch) {
-      const newMode = setModeMatch[1];
-      if (MODES[newMode]) {
-        currentMode = newMode;
-        return res.status(200).send(`AI mode switched to *${newMode}* successfully.`);
-      } else {
-        return res.status(400).send("Invalid mode. Available modes: " + Object.keys(MODES).join(", "));
+      try {
+        const apiRes = await axios.get(`https://smfahim.xyz/creartai?prompt=${encodeURIComponent(imagePrompt)}`);
+        const imageUrl = apiRes.data.imageUrl || apiRes.data.url || apiRes.data;
+        const imageStream = await axios.get(imageUrl, { responseType: 'stream' });
+        res.setHeader('Content-Type', 'image/jpeg');
+        return imageStream.data.pipe(res);
+      } catch (error) {
+        console.error("Error generating image:", error.message);
+        return res.status(500).send("Failed to generate image.");
       }
     }
 
-    if (lowerQuery.startsWith("play me a song") || lowerQuery.startsWith("play ")) {
-      const songTitle = query.replace(/play me a song|play /i, "").trim();
-      if (!songTitle) return res.status(400).send("Please provide a song title.");
-      const songUrl = `https://spotify-api-t6b7.onrender.com/play?song=${encodeURIComponent(songTitle)}`;
-      return res.status(200).send(`Here's your song: ${songUrl}`);
-    }
-
-    if (lowerQuery.includes("send me a video") || lowerQuery.includes("video of")) {
-      const videoTitle = query.replace(/send me a video|video of/i, "").trim();
-      if (!videoTitle) return res.status(400).send("Please provide a video title.");
-      const videoUrl = `https://spotify-api-t6b7.onrender.com/video?search=${encodeURIComponent(videoTitle)}`;
-      return res.status(200).send(`Here's your video: ${videoUrl}`);
-    }
-
-    if (lowerQuery.includes("generate image") || lowerQuery.includes("create image of")) {
-      const imagePrompt = query.replace(/generate image|create image of/i, "").trim();
-      if (!imagePrompt) return res.status(400).send("Please provide an image prompt.");
-      const imageUrl = `https://smfahim.xyz/creartai?prompt=${encodeURIComponent(imagePrompt)}`;
-      return res.status(200).send(`Here's your generated image: ${imageUrl}`);
-    }
-
+    // Default AI reply via Gemini
     try {
       const prompt = `${MODES[currentMode]}\n\nUser: ${query}`;
       const result = await model.generateContent(prompt);
